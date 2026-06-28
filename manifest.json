@@ -1,0 +1,22 @@
+{
+  "name": "医療費控除申請書作成",
+  "short_name": "医療費控除",
+  "description": "領収書を撮影して医療費を自動入力するアプリ",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f5f5f5",
+  "theme_color": "#1a73e8",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
