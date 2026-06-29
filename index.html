@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#1a73e8">
 <title>医療費控除申請書作成</title>
 <link rel="manifest" href="manifest.json">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; background: #f5f5f5; color: #1a1a1a; padding-bottom: env(safe-area-inset-bottom); }
@@ -21,18 +22,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Goth
 .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; }
 .card-title { font-size: 12px; color: #666; margin-bottom: 6px; }
 .card-value { font-size: 16px; font-weight: 600; }
-.badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px; font-weight: 500; }
-.badge-blue { background: #e8f0fe; color: #1a73e8; }
-.badge-green { background: #e6f4ea; color: #188038; }
-input, select, textarea { width: 100%; border-radius: 8px; border: 1px solid #ccc; padding: 9px 12px; font-size: 16px; color: #1a1a1a; background: #fff; margin-top: 4px; font-family: inherit; appearance: none; -webkit-appearance: none; }
+input, select { width: 100%; border-radius: 8px; border: 1px solid #ccc; padding: 9px 12px; font-size: 16px; color: #1a1a1a; background: #fff; margin-top: 4px; font-family: inherit; -webkit-appearance: none; appearance: none; }
 input:focus, select:focus { outline: none; border-color: #1a73e8; }
 label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
-.btn { display: block; width: 100%; padding: 13px 16px; border-radius: 10px; font-size: 15px; font-weight: 500; cursor: pointer; border: 1px solid #ccc; font-family: inherit; margin-top: 10px; background: #fff; color: #1a1a1a; transition: background 0.15s; -webkit-appearance: none; }
+.btn { display: block; width: 100%; padding: 13px 16px; border-radius: 10px; font-size: 15px; font-weight: 500; cursor: pointer; border: 1px solid #ccc; font-family: inherit; margin-top: 10px; background: #fff; color: #1a1a1a; -webkit-appearance: none; }
 .btn-primary { background: #1a73e8; color: #fff; border-color: transparent; }
 .btn-primary:active { background: #1558b0; }
 .btn-camera { background: #1a73e8; color: #fff; border-color: transparent; font-size: 16px; padding: 16px; }
-.btn-camera:active { background: #1558b0; }
 .btn-gallery { background: #fff; color: #1a73e8; border-color: #1a73e8; font-size: 15px; }
+.btn-excel { background: #217346; color: #fff; border-color: transparent; font-size: 15px; padding: 14px; }
+.btn-excel:active { background: #185a35; }
 .menu-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; cursor: pointer; margin-bottom: 10px; }
 .menu-item:active { background: #f0f0f0; }
 .menu-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
@@ -48,11 +47,9 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
 .record-row:last-child { border-bottom: none; }
 .record-name { font-weight: 500; }
 .record-sub { color: #888; font-size: 11px; margin-top: 2px; }
-.record-amount { font-weight: 500; text-align: right; }
+.record-amount { font-weight: 500; text-align: right; min-width: 80px; }
 .record-transport { font-size: 11px; color: #188038; text-align: right; }
 .total-row { display: flex; justify-content: space-between; padding: 12px 0; font-weight: 600; font-size: 15px; border-top: 2px solid #e0e0e0; margin-top: 4px; }
-.hint { font-size: 11px; color: #888; margin-top: 5px; }
-.hint a { color: #1a73e8; }
 .error-msg { font-size: 12px; color: #d93025; margin-top: 6px; }
 .success-msg { font-size: 12px; color: #188038; margin-top: 6px; }
 .hero { text-align: center; padding: 1.5rem 0; }
@@ -60,47 +57,49 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
 .hero h1 { font-size: 22px; font-weight: 700; }
 .hero p { font-size: 13px; color: #666; margin-top: 6px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.25rem; }
-.camera-area { margin-bottom: 12px; }
 .camera-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
 .transport-box { background: #f0f7ff; border: 1px solid #c5d9f7; border-radius: 10px; padding: 12px 14px; margin-top: 12px; }
 .transport-box .t-label { font-size: 12px; color: #555; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
 .auto-tag { font-size: 11px; color: #1a73e8; background: #e8f0fe; padding: 2px 8px; border-radius: 4px; }
 .new-tag { font-size: 11px; color: #188038; background: #e6f4ea; padding: 2px 8px; border-radius: 4px; }
-.master-row { display: flex; gap: 8px; align-items: center; }
-.master-row input { margin-top: 0; }
 .suggest-box { border: 1px solid #ccc; border-radius: 10px; background: #fff; margin-top: 4px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
 .suggest-item { padding: 12px 14px; cursor: pointer; font-size: 14px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
 .suggest-item:last-child { border-bottom: none; }
 .suggest-item:active { background: #f5f5f5; }
+.category-check { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.category-check label { margin: 0; display: flex; align-items: center; gap: 5px; font-size: 14px; color: #1a1a1a; background: #f5f5f5; border: 1px solid #ddd; border-radius: 8px; padding: 7px 11px; cursor: pointer; flex: 1; min-width: calc(50% - 4px); }
+.category-check input[type="checkbox"] { width: 16px; height: 16px; margin: 0; flex-shrink: 0; accent-color: #1a73e8; }
+.category-check label.checked { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; }
+.badge { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
+.badge-blue { background: #e8f0fe; color: #1a73e8; }
+.hint { font-size: 11px; color: #888; margin-top: 4px; }
 </style>
 </head>
 <body>
 <div class="app">
 
-<!-- 設定画面 -->
-<div id="screen-setup" class="screen active">
+<!-- 設定画面（初回のみ） -->
+<div id="screen-setup" class="screen">
   <div class="hero">
     <div class="hero-icon">🏥</div>
     <h1>医療費控除申請書作成</h1>
-    <p>Gemini AIが領収書を自動で読み取ります</p>
+    <p style="font-size:13px;color:#666;margin-top:6px">Gemini AIが領収書を自動で読み取ります</p>
   </div>
   <div class="card">
     <div class="card-title">Gemini APIキー</div>
     <input type="password" id="apikey-input" placeholder="APIキーを貼り付けてください" autocomplete="off" />
-    <p class="hint">取得先：<a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a>（無料）</p>
+    <p style="font-size:11px;color:#888;margin-top:6px">取得先：<a href="https://aistudio.google.com" target="_blank" style="color:#1a73e8">aistudio.google.com</a>（無料）<br>※ 入力は最初の1回だけです。次回から自動でスキップされます。</p>
   </div>
   <button class="btn btn-primary" onclick="saveSetup()">始める →</button>
-  <div id="setup-error" class="error-msg"></div>
+  <div id="setup-error" style="font-size:12px;color:#d93025;margin-top:6px"></div>
 </div>
 
 <!-- ホーム画面 -->
 <div id="screen-home" class="screen">
-  <div class="header">
-    <div>
-      <h1>医療費控除申請書</h1>
-      <p style="font-size:12px;color:#888;margin-top:2px" id="home-year"></p>
-    </div>
-    <button class="back-btn" style="margin-left:auto" onclick="showScreen('screen-setup')">⚙️</button>
+  <div class="hero">
+    <div class="hero-icon">🏥</div>
+    <h1>医療費控除申請書</h1>
+    <p id="home-year" style="font-size:13px;color:#666;margin-top:4px"></p>
   </div>
   <div class="grid2">
     <div class="card" style="margin-bottom:0"><div class="card-title">登録件数</div><div class="card-value" id="home-count">0件</div></div>
@@ -113,7 +112,7 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
   </div>
   <div class="menu-item" onclick="showScreen('screen-list')">
     <div class="menu-icon" style="background:#e6f4ea">📋</div>
-    <div class="menu-item-text"><h3>入力済み一覧</h3><p>登録済みの医療費を確認</p></div>
+    <div class="menu-item-text"><h3>入力済み一覧</h3><p>登録済みの医療費を確認・削除</p></div>
     <span class="menu-arrow">›</span>
   </div>
   <div class="menu-item" onclick="showScreen('screen-master')">
@@ -122,8 +121,8 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
     <span class="menu-arrow">›</span>
   </div>
   <div class="menu-item" onclick="showScreen('screen-export')">
-    <div class="menu-icon" style="background:#f3e8fd">📊</div>
-    <div class="menu-item-text"><h3>CSV出力</h3><p>医療費集計フォーム用データ</p></div>
+    <div class="menu-icon" style="background:#e6f4ea">📊</div>
+    <div class="menu-item-text"><h3>Excelファイル出力</h3><p>医療費集計フォームを出力</p></div>
     <span class="menu-arrow">›</span>
   </div>
 </div>
@@ -134,25 +133,16 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
     <button class="back-btn" onclick="showScreen('screen-home')">‹ 戻る</button>
     <h1>領収書を読み取る</h1>
   </div>
-
-  <div class="camera-area">
-    <img id="preview-img" class="preview-img" style="display:none" />
-    <div class="camera-btns">
-      <!-- カメラ直接起動 -->
-      <label style="margin:0">
-        <div class="btn btn-camera" style="text-align:center;cursor:pointer">
-          📷 カメラで撮影
-        </div>
-        <input type="file" accept="image/*" capture="environment" style="display:none" onchange="handleImageSelect(event)" />
-      </label>
-      <!-- フォトライブラリ選択 -->
-      <label style="margin:0">
-        <div class="btn btn-gallery" style="text-align:center;cursor:pointer">
-          🖼️ 写真を選ぶ
-        </div>
-        <input type="file" accept="image/*" style="display:none" onchange="handleImageSelect(event)" />
-      </label>
-    </div>
+  <img id="preview-img" class="preview-img" style="display:none" />
+  <div class="camera-btns">
+    <label style="margin:0">
+      <div class="btn btn-camera" style="text-align:center;cursor:pointer">📷 カメラで撮影</div>
+      <input type="file" accept="image/*" capture="environment" style="display:none" onchange="handleImageSelect(event)" />
+    </label>
+    <label style="margin:0">
+      <div class="btn btn-gallery" style="text-align:center;cursor:pointer">🖼️ 写真を選ぶ</div>
+      <input type="file" accept="image/*" style="display:none" onchange="handleImageSelect(event)" />
+    </label>
   </div>
 
   <div class="loading-overlay" id="scan-loading">
@@ -170,24 +160,28 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
     <input type="text" id="r-hospital" placeholder="病院・薬局名を入力" oninput="onHospitalInput()" autocomplete="off" />
     <div id="hospital-suggest" style="display:none"></div>
 
-    <label>医療費の区分</label>
-    <select id="r-category">
-      <option value="診療・治療">診療・治療</option>
-      <option value="医薬品購入">医薬品購入</option>
-      <option value="介護保険サービス">介護保険サービス</option>
-      <option value="その他の医療費">その他の医療費</option>
-    </select>
+    <label>医療費の区分（複数選択可）</label>
+    <div class="category-check">
+      <label id="lbl-cat1"><input type="checkbox" id="cat-1" value="診療・治療" onchange="updateCatLabel(this)"> 診療・治療</label>
+      <label id="lbl-cat2"><input type="checkbox" id="cat-2" value="医薬品購入" onchange="updateCatLabel(this)"> 医薬品購入</label>
+      <label id="lbl-cat3"><input type="checkbox" id="cat-3" value="介護保険サービス" onchange="updateCatLabel(this)"> 介護保険サービス</label>
+      <label id="lbl-cat4"><input type="checkbox" id="cat-4" value="その他の医療費" onchange="updateCatLabel(this)"> その他の医療費</label>
+    </div>
+    <div id="cat-error" class="error-msg" style="display:none">区分を1つ以上選択してください</div>
 
     <label>支払った医療費（円）</label>
     <input type="number" id="r-amount" placeholder="0" inputmode="numeric" />
+
+    <label>補填される金額（円）※保険金等がある場合のみ</label>
+    <input type="number" id="r-supplement" placeholder="0" inputmode="numeric" value="0" />
 
     <label>支払年月日</label>
     <input type="date" id="r-date" />
 
     <div class="transport-box">
       <div class="t-label">往復交通費 <span id="transport-tag" class="new-tag">初回入力</span></div>
-      <input type="number" id="r-transport" placeholder="0" value="0" inputmode="numeric" style="margin-top:0; background:#fff;" />
-      <p id="transport-hint" style="font-size:11px;color:#888;margin-top:6px"></p>
+      <input type="number" id="r-transport" placeholder="0" value="0" inputmode="numeric" style="margin-top:0;background:#fff;" />
+      <p id="transport-hint" class="hint"></p>
     </div>
 
     <button class="btn btn-primary" onclick="saveRecord()" style="margin-top:16px;padding:14px">✓ この内容で登録</button>
@@ -218,30 +212,35 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
   <p id="master-empty" style="color:#888;font-size:13px;text-align:center;padding:1rem 0;display:none">まだ病院が登録されていません</p>
 </div>
 
-<!-- CSV出力画面 -->
+<!-- Excel出力画面 -->
 <div id="screen-export" class="screen">
   <div class="header">
     <button class="back-btn" onclick="showScreen('screen-home')">‹ 戻る</button>
-    <h1>CSV出力</h1>
+    <h1>Excelファイル出力</h1>
   </div>
   <div class="card">
     <div class="card-title">出力内容</div>
     <div id="export-summary" style="margin-top:6px;font-size:14px;line-height:1.9"></div>
   </div>
-  <p style="font-size:13px;color:#555;margin-bottom:12px">CSVをダウンロードして、Excelの医療費集計フォームに貼り付けてください。</p>
-  <button class="btn btn-primary" onclick="exportCSV()" style="padding:14px">⬇ CSVをダウンロード</button>
+  <div class="card" style="background:#f0f7ff;border-color:#c5d9f7">
+    <p style="font-size:13px;color:#333;line-height:1.7">
+      出力されるExcelファイルは<strong>国税庁の医療費集計フォーム（Ver.3.1）</strong>の形式に準拠しています。<br>
+      そのまま確定申告書作成コーナーに読み込んでご利用いただけます。
+    </p>
+  </div>
+  <button class="btn btn-excel" onclick="exportExcel()">📥 医療費集計フォームをダウンロード</button>
   <div id="export-msg" class="success-msg" style="margin-top:8px"></div>
 </div>
 
 </div>
 
 <script>
-let apiKey = '', records = [], masterData = [];
+const API_KEY = localStorage.getItem('iryouhi_apikey') || '';
+let records = [], masterData = [];
 
 function loadData() {
   try { const s = localStorage.getItem('iryouhi_records'); if (s) records = JSON.parse(s); } catch(e) { records=[]; }
   try { const s = localStorage.getItem('iryouhi_master'); if (s) masterData = JSON.parse(s); } catch(e) { masterData=[]; }
-  try { apiKey = localStorage.getItem('iryouhi_apikey') || ''; } catch(e) { apiKey=''; }
 }
 
 function saveData() {
@@ -262,19 +261,17 @@ function showScreen(id) {
   if (id==='screen-scan') resetScan();
 }
 
-function saveSetup() {
-  const key = document.getElementById('apikey-input').value.trim();
-  if (!key || key.length < 10) { document.getElementById('setup-error').textContent = 'APIキーを入力してください。'; return; }
-  apiKey = key;
-  try { localStorage.setItem('iryouhi_apikey', key); } catch(e) {}
-  showScreen('screen-home');
-}
-
 function updateHome() {
   document.getElementById('home-year').textContent = new Date().getFullYear() + '年分';
   document.getElementById('home-count').textContent = records.length + '件';
-  const total = records.reduce((s,r) => s+parseInt(r.amount||0)+parseInt(r.transport||0), 0);
+  const total = records.reduce((s,r) => s + parseInt(r.amount||0) + parseInt(r.transport||0), 0);
   document.getElementById('home-total').textContent = '¥' + total.toLocaleString();
+}
+
+function updateCatLabel(cb) {
+  const lbl = cb.closest('label');
+  if (cb.checked) lbl.classList.add('checked');
+  else lbl.classList.remove('checked');
 }
 
 let selectedImageBase64='', selectedImageMime='';
@@ -305,11 +302,12 @@ async function analyzeReceipt() {
   "date": "支払年月日（YYYY-MM-DD形式、不明な場合は今日の日付）",
   "hospital_name": "病院・薬局・クリニックの名称",
   "amount": "支払金額（数字のみ、カンマなし）",
-  "category": "診療・治療 または 医薬品購入 または その他の医療費"
+  "categories": ["診療・治療", "医薬品購入", "介護保険サービス", "その他の医療費"] のうち該当するものを配列で（病院は診療・治療、薬局は医薬品購入が多い）
 }`;
 
   try {
-    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey, {
+    const currentKey = localStorage.getItem('iryouhi_apikey') || '';
+    const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + currentKey, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -325,9 +323,28 @@ async function analyzeReceipt() {
     document.getElementById('r-date').value = parsed.date || '';
     document.getElementById('r-amount').value = parsed.amount || '';
     document.getElementById('r-person').value = '本人';
+    document.getElementById('r-supplement').value = '0';
+
+    // チェックボックスリセット
+    ['cat-1','cat-2','cat-3','cat-4'].forEach(id => {
+      const cb = document.getElementById(id);
+      cb.checked = false;
+      cb.closest('label').classList.remove('checked');
+    });
+    // AIの結果を反映
     const cats = ['診療・治療','医薬品購入','介護保険サービス','その他の医療費'];
-    const matchCat = cats.find(c => parsed.category && parsed.category.includes(c.slice(0,4)));
-    if (matchCat) document.getElementById('r-category').value = matchCat;
+    const catIds = ['cat-1','cat-2','cat-3','cat-4'];
+    if (Array.isArray(parsed.categories)) {
+      parsed.categories.forEach(c => {
+        const idx = cats.indexOf(c);
+        if (idx >= 0) {
+          const cb = document.getElementById(catIds[idx]);
+          cb.checked = true;
+          cb.closest('label').classList.add('checked');
+        }
+      });
+    }
+
     const hospitalName = parsed.hospital_name || '';
     document.getElementById('r-hospital').value = hospitalName;
     applyTransportFromMaster(hospitalName);
@@ -402,12 +419,33 @@ function saveRecord() {
   const hospitalName = document.getElementById('r-hospital').value.trim();
   const amount = document.getElementById('r-amount').value;
   const transport = parseInt(document.getElementById('r-transport').value || '0');
+  const supplement = parseInt(document.getElementById('r-supplement').value || '0');
+
+  // 区分チェック
+  const selectedCats = ['cat-1','cat-2','cat-3','cat-4']
+    .filter(id => document.getElementById(id).checked)
+    .map(id => document.getElementById(id).value);
+  const catErr = document.getElementById('cat-error');
+  if (selectedCats.length === 0) { catErr.style.display='block'; return; }
+  catErr.style.display='none';
+
   if (!hospitalName) { document.getElementById('scan-error').textContent='病院名を入力してください。'; return; }
   if (!amount) { document.getElementById('scan-error').textContent='金額を入力してください。'; return; }
+
   if (!masterData.find(m => m.name === hospitalName)) {
     masterData.push({ name: hospitalName, transport: transport });
   }
-  records.push({ id:Date.now(), person:document.getElementById('r-person').value||'本人', hospital:hospitalName, category:document.getElementById('r-category').value, amount:amount, transport:transport, date:document.getElementById('r-date').value });
+
+  records.push({
+    id: Date.now(),
+    person: document.getElementById('r-person').value || '本人',
+    hospital: hospitalName,
+    categories: selectedCats,
+    amount: amount,
+    supplement: supplement,
+    transport: transport,
+    date: document.getElementById('r-date').value,
+  });
   saveData();
   showScreen('screen-home');
 }
@@ -421,21 +459,45 @@ function resetScan() {
   const t = document.getElementById('r-transport'); if(t){t.value=''; t.readOnly=false; t.style.background='#fff';}
   const tag = document.getElementById('transport-tag'); if(tag){tag.textContent='初回入力'; tag.className='new-tag';}
   const hint = document.getElementById('transport-hint'); if(hint){hint.textContent='';}
+  ['cat-1','cat-2','cat-3','cat-4'].forEach(id => {
+    const cb = document.getElementById(id);
+    if(cb){ cb.checked=false; cb.closest('label').classList.remove('checked'); }
+  });
+  const catErr = document.getElementById('cat-error');
+  if(catErr) catErr.style.display='none';
 }
 
 function renderList() {
   const container = document.getElementById('list-container');
   if (records.length===0) { container.innerHTML='<p style="color:#888;font-size:13px;text-align:center;padding:1rem 0">まだデータがありません</p>'; return; }
   let html='';
-  records.slice().reverse().forEach(r => {
+  records.slice().reverse().forEach((r,idx) => {
+    const realIdx = records.length - 1 - idx;
+    const catStr = (r.categories||[r.category]).join('・');
     html+=`<div class="record-row">
-      <div><div class="record-name">${r.hospital}</div><div class="record-sub">${r.date} ${r.person} <span class="badge badge-blue" style="font-size:10px">${r.category}</span></div></div>
-      <div><div class="record-amount">¥${parseInt(r.amount||0).toLocaleString()}</div>${parseInt(r.transport)>0?`<div class="record-transport">+交通費 ¥${parseInt(r.transport).toLocaleString()}</div>`:''}</div>
+      <div style="flex:1;min-width:0">
+        <div class="record-name">${r.hospital}</div>
+        <div class="record-sub">${r.date} ${r.person}</div>
+        <div class="record-sub" style="margin-top:2px">${catStr}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:8px">
+        <div class="record-amount">¥${parseInt(r.amount||0).toLocaleString()}</div>
+        ${parseInt(r.transport)>0?`<div class="record-transport">+交通費 ¥${parseInt(r.transport).toLocaleString()}</div>`:''}
+        <button onclick="deleteRecord(${realIdx})" style="background:none;border:none;cursor:pointer;color:#d93025;font-size:12px;margin-top:4px">削除</button>
+      </div>
     </div>`;
   });
   const total = records.reduce((s,r)=>s+parseInt(r.amount||0)+parseInt(r.transport||0),0);
   html+=`<div class="total-row"><span>合計</span><span>¥${total.toLocaleString()}</span></div>`;
   container.innerHTML=html;
+}
+
+function deleteRecord(idx) {
+  if (!confirm(`「${records[idx].hospital}」の記録を削除しますか？`)) return;
+  records.splice(idx,1);
+  saveData();
+  renderList();
+  updateHome();
 }
 
 function renderMaster() {
@@ -456,31 +518,119 @@ function renderMaster() {
       <button onclick="deleteMaster(${i})" style="background:none;border:none;cursor:pointer;color:#d93025;font-size:13px;padding:8px;flex-shrink:0">削除</button>
     </div>`;
   });
-  html+='</div>';
-  container.innerHTML=html;
+  html+='</div>'; container.innerHTML=html;
 }
 
 function updateMasterTransport(i, val) { masterData[i].transport=parseInt(val||'0'); saveData(); }
-function deleteMaster(i) { if(!confirm(`「${masterData[i].name}」を削除しますか？`)) return; masterData.splice(i,1); saveData(); renderMaster(); }
+function deleteMaster(i) {
+  if(!confirm(`「${masterData[i].name}」を削除しますか？`)) return;
+  masterData.splice(i,1); saveData(); renderMaster();
+}
 
 function renderExport() {
   const total = records.reduce((s,r)=>s+parseInt(r.amount||0),0);
   const transport = records.reduce((s,r)=>s+parseInt(r.transport||0),0);
-  document.getElementById('export-summary').innerHTML=`登録件数：<strong>${records.length}件</strong><br>医療費合計：<strong>¥${total.toLocaleString()}</strong><br>交通費合計：<strong>¥${transport.toLocaleString()}</strong><br>総合計：<strong>¥${(total+transport).toLocaleString()}</strong>`;
+  const supplement = records.reduce((s,r)=>s+parseInt(r.supplement||0),0);
+  document.getElementById('export-summary').innerHTML=
+    `登録件数：<strong>${records.length}件</strong><br>` +
+    `医療費合計：<strong>¥${total.toLocaleString()}</strong><br>` +
+    `交通費合計：<strong>¥${transport.toLocaleString()}</strong><br>` +
+    (supplement>0?`補填される金額：<strong>¥${supplement.toLocaleString()}</strong><br>`:'') +
+    `総合計：<strong>¥${(total+transport).toLocaleString()}</strong>`;
 }
 
-function exportCSV() {
+function exportExcel() {
   if (records.length===0) { document.getElementById('export-msg').textContent='データがありません。'; return; }
-  const header='No,医療を受けた人,病院・薬局などの名称,医療費の区分,支払った医療費の金額,交通費,合計,支払年月日';
-  const rows=records.map((r,i)=>{ const total=parseInt(r.amount||0)+parseInt(r.transport||0); return [i+1,r.person,`"${r.hospital}"`,r.category,r.amount,r.transport,total,r.date].join(','); });
-  const csv='\uFEFF'+header+'\n'+rows.join('\n');
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='iryouhi_'+new Date().getFullYear()+'.csv'; a.click();
-  document.getElementById('export-msg').textContent='ダウンロードしました！';
+
+  const wb = XLSX.utils.book_new();
+  const year = new Date().getFullYear();
+
+  // ===== 医療費集計フォームシート =====
+  const wsData = [];
+
+  // ヘッダー行（国税庁フォーマットに準拠）
+  wsData.push(['医療費集計フォーム  Ver.3.1']);
+  wsData.push([]);
+  wsData.push(['入力した合計金額', '支払った医療費の金額', '', '', '', '', '●ご利用に当たって']);
+  wsData.push(['', '左のうち、補填される金額', '', '', '', '', '　 ご利用に当たってはシート「ご利用に当たって」の内容をご確認ください。']);
+  wsData.push(['※ I列の「左のうち、補填される金額」は、その給付の目的となった医療費の金額を限度として差し引き、給付の目的となった医療費以外の金額からは差し引きません。']);
+  wsData.push(['No', '医療を受けた人', '病院・薬局などの名称', '医療費の区分　※複数選択可', '', '', '', '支払った医療費の金額', '左のうち、補填される金額', '支払年月日']);
+  wsData.push(['', '（全角10文字以内）', '（全角20文字以内）', '診療・治療', '医薬品購入', '介護保険サービス', 'その他の医療費', '（半角数字９桁以内）', '（半角数字９桁以内）', '（任意）']);
+  wsData.push([]); // 8行目は空
+
+  // データ行（9行目から）
+  records.forEach((r, i) => {
+    const cats = r.categories || (r.category ? [r.category] : []);
+    const totalAmount = parseInt(r.amount||0) + parseInt(r.transport||0);
+
+    // 医療費本体
+    wsData.push([
+      i + 1,
+      r.person || '本人',
+      r.hospital,
+      cats.includes('診療・治療') ? '該当する' : '',
+      cats.includes('医薬品購入') ? '該当する' : '',
+      cats.includes('介護保険サービス') ? '該当する' : '',
+      cats.includes('その他の医療費') ? '該当する' : '',
+      parseInt(r.amount||0),
+      parseInt(r.supplement||0) || '',
+      r.date ? r.date.replace(/-/g, '/') : '',
+    ]);
+
+    // 交通費が別途ある場合は次の行に追加
+    if (parseInt(r.transport||0) > 0) {
+      wsData.push([
+        '',
+        r.person || '本人',
+        r.hospital + '（交通費）',
+        '', '', '', '該当する',
+        parseInt(r.transport),
+        '',
+        r.date ? r.date.replace(/-/g, '/') : '',
+      ]);
+    }
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // 列幅設定
+  ws['!cols'] = [
+    {wch:6},  // A: No
+    {wch:14}, // B: 医療を受けた人
+    {wch:24}, // C: 病院名
+    {wch:12}, // D: 診療・治療
+    {wch:12}, // E: 医薬品購入
+    {wch:16}, // F: 介護保険
+    {wch:14}, // G: その他
+    {wch:18}, // H: 金額
+    {wch:18}, // I: 補填
+    {wch:14}, // J: 日付
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, '医療費集計フォーム');
+
+  // ファイル名
+  const filename = `iryouhi_${year}.xlsx`;
+  XLSX.writeFile(wb, filename);
+
+  document.getElementById('export-msg').textContent = `「${filename}」をダウンロードしました！確定申告書作成コーナーにそのまま読み込めます。`;
 }
 
+
+function saveSetup() {
+  const key = document.getElementById('apikey-input').value.trim();
+  if (!key || key.length < 10) { document.getElementById('setup-error').textContent = 'APIキーを入力してください。'; return; }
+  localStorage.setItem('iryouhi_apikey', key);
+  showScreen('screen-home');
+}
+
+// 初期化
 loadData();
-if (apiKey) { document.getElementById('apikey-input').value=apiKey; showScreen('screen-home'); }
+if (localStorage.getItem('iryouhi_apikey')) {
+  showScreen('screen-home');
+} else {
+  showScreen('screen-setup');
+}
 </script>
 </body>
 </html>
