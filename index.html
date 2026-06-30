@@ -224,11 +224,11 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
   </div>
   <div class="card" style="background:#f0f7ff;border-color:#c5d9f7">
     <p style="font-size:13px;color:#333;line-height:1.7">
-      出力されるExcelファイルは<strong>国税庁の医療費集計フォーム（Ver.3.1）</strong>の形式に準拠しています。<br>
-      そのまま確定申告書作成コーナーに読み込んでご利用いただけます。
+      データをCSVでダウンロードし、お手元の<strong>医療費集計フォーム（Ver.3.1）のB9セル</strong>に貼り付けるだけで完了します。<br>
+      テンプレートの罫線・色・数式はそのまま保たれます。
     </p>
   </div>
-  <button class="btn btn-excel" onclick="exportExcel()">📥 医療費集計フォームをダウンロード</button>
+  <button class="btn btn-excel" onclick="exportExcel()">📥 貼り付け用CSVをダウンロード</button>
   <div id="export-msg" class="success-msg" style="margin-top:8px"></div>
 </div>
 
@@ -542,30 +542,18 @@ function renderExport() {
 function exportExcel() {
   if (records.length===0) { document.getElementById('export-msg').textContent='データがありません。'; return; }
 
-  const wb = XLSX.utils.book_new();
-  const year = new Date().getFullYear();
+  // テンプレートのB9セル以降にそのまま貼り付けられる順序でCSVを作成
+  // 列順: 医療を受けた人, 病院名, 診療治療, 医薬品購入, 介護保険, その他, 金額, 補填額, 日付
+  const formatDate = (d) => {
+    if (!d) return '';
+    // Excelが日付として自動認識してシリアル値化するのを防ぐため ="..." 形式にする
+    return `="${d.replace(/-/g, '/')}"`;
+  };
 
-  // ===== 医療費集計フォームシート =====
-  const wsData = [];
-
-  // ヘッダー行（国税庁フォーマットに準拠）
-  wsData.push(['医療費集計フォーム  Ver.3.1']);
-  wsData.push([]);
-  wsData.push(['入力した合計金額', '支払った医療費の金額', '', '', '', '', '●ご利用に当たって']);
-  wsData.push(['', '左のうち、補填される金額', '', '', '', '', '　 ご利用に当たってはシート「ご利用に当たって」の内容をご確認ください。']);
-  wsData.push(['※ I列の「左のうち、補填される金額」は、その給付の目的となった医療費の金額を限度として差し引き、給付の目的となった医療費以外の金額からは差し引きません。']);
-  wsData.push(['No', '医療を受けた人', '病院・薬局などの名称', '医療費の区分　※複数選択可', '', '', '', '支払った医療費の金額', '左のうち、補填される金額', '支払年月日']);
-  wsData.push(['', '（全角10文字以内）', '（全角20文字以内）', '診療・治療', '医薬品購入', '介護保険サービス', 'その他の医療費', '（半角数字９桁以内）', '（半角数字９桁以内）', '（任意）']);
-  wsData.push([]); // 8行目は空
-
-  // データ行（9行目から）
-  records.forEach((r, i) => {
+  const rows = [];
+  records.forEach((r) => {
     const cats = r.categories || (r.category ? [r.category] : []);
-    const totalAmount = parseInt(r.amount||0) + parseInt(r.transport||0);
-
-    // 医療費本体
-    wsData.push([
-      i + 1,
+    rows.push([
       r.person || '本人',
       r.hospital,
       cats.includes('診療・治療') ? '該当する' : '',
@@ -574,50 +562,37 @@ function exportExcel() {
       cats.includes('その他の医療費') ? '該当する' : '',
       parseInt(r.amount||0),
       parseInt(r.supplement||0) || '',
-      r.date ? r.date.replace(/-/g, '/') : '',
-    ]);
+      formatDate(r.date),
+    ].join(','));
 
-    // 交通費が別途ある場合は次の行に追加
     if (parseInt(r.transport||0) > 0) {
-      wsData.push([
-        '',
+      rows.push([
         r.person || '本人',
-        r.hospital + '（交通費）',
+        r.hospital,
         '', '', '', '該当する',
         parseInt(r.transport),
         '',
-        r.date ? r.date.replace(/-/g, '/') : '',
-      ]);
+        formatDate(r.date),
+      ].join(','));
     }
   });
 
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const csv = '\uFEFF' + rows.join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const year = new Date().getFullYear();
+  const filename = `iryouhi_${year}_data.csv`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
 
-  // 列幅設定
-  ws['!cols'] = [
-    {wch:6},  // A: No
-    {wch:14}, // B: 医療を受けた人
-    {wch:24}, // C: 病院名
-    {wch:12}, // D: 診療・治療
-    {wch:12}, // E: 医薬品購入
-    {wch:16}, // F: 介護保険
-    {wch:14}, // G: その他
-    {wch:18}, // H: 金額
-    {wch:18}, // I: 補填
-    {wch:14}, // J: 日付
-  ];
-
-  XLSX.utils.book_append_sheet(wb, ws, '医療費集計フォーム');
-
-  // ファイル名
-  const filename = `iryouhi_${year}.xlsx`;
-  XLSX.writeFile(wb, filename);
-
-  document.getElementById('export-msg').textContent = `「${filename}」をダウンロードしました！確定申告書作成コーナーにそのまま読み込めます。`;
-}
-
-
-function saveSetup() {
+  document.getElementById('export-msg').innerHTML =
+    `「${filename}」をダウンロードしました！<br><br>` +
+    `<strong>貼り付け手順：</strong><br>` +
+    `① ダウンロードしたCSVをExcelで開く<br>` +
+    `② A列〜I列のデータ全体を選択してコピー<br>` +
+    `③ お手元の医療費集計フォームを開き、<strong>B9セル</strong>を選択して貼り付け`;
+}function saveSetup() {
   const key = document.getElementById('apikey-input').value.trim();
   if (!key || key.length < 10) { document.getElementById('setup-error').textContent = 'APIキーを入力してください。'; return; }
   localStorage.setItem('iryouhi_apikey', key);
