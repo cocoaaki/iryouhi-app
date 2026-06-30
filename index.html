@@ -10,6 +10,29 @@
 <title>医療費控除申請書作成</title>
 <link rel="manifest" href="manifest.json">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDIyErU7sP3DZPBqM3VXDbbtCesADlpVR8",
+    authDomain: "iryouhi-app.firebaseapp.com",
+    projectId: "iryouhi-app",
+    storageBucket: "iryouhi-app.firebasestorage.app",
+    messagingSenderId: "231460035027",
+    appId: "1:231460035027:web:d68c5961e0fcedc913f726"
+  };
+
+  const fbApp = initializeApp(firebaseConfig);
+  const auth = getAuth(fbApp);
+  const db = getFirestore(fbApp);
+  const provider = new GoogleAuthProvider();
+
+  // グローバルに公開（通常scriptから呼べるように）
+  window.__firebase = { auth, db, provider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, doc, setDoc, getDoc, onSnapshot };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; background: #f5f5f5; color: #1a1a1a; padding-bottom: env(safe-area-inset-bottom); }
@@ -78,6 +101,21 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
 <body>
 <div class="app">
 
+<!-- ログイン画面 -->
+<div id="screen-login" class="screen active">
+  <div class="hero">
+    <div class="hero-icon">🏥</div>
+    <h1>医療費控除申請書作成</h1>
+    <p style="font-size:13px;color:#666;margin-top:6px">Googleアカウントでログインすると、<br>スマホとPCでデータが連動します</p>
+  </div>
+  <button class="btn btn-primary" onclick="loginWithGoogle()" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:14px">
+    <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#fff" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.08-1.8 2.72v2.26h2.91c1.7-1.57 2.69-3.88 2.69-6.62z"/><path fill="#fff" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.81.54-1.84.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#fff" d="M3.96 10.71A5.4 5.4 0 0 1 3.68 9c0-.59.1-1.17.28-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33z"/><path fill="#fff" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l3 2.33C4.67 5.16 6.66 3.58 9 3.58z"/></svg>
+    Googleでログイン
+  </button>
+  <p id="login-error" style="font-size:12px;color:#d93025;margin-top:10px;text-align:center"></p>
+  <p style="font-size:11px;color:#888;margin-top:20px;text-align:center;line-height:1.6">ログインすることで、入力したデータはあなたのGoogleアカウントに<br>紐づけて安全に保存されます。他の人のデータは見られません。</p>
+</div>
+
 <!-- 設定画面（初回のみ） -->
 <div id="screen-setup" class="screen">
   <div class="hero">
@@ -96,10 +134,16 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
 
 <!-- ホーム画面 -->
 <div id="screen-home" class="screen">
-  <div class="hero">
+  <div style="display:flex;align-items:center;gap:8px;padding:8px 0;margin-bottom:8px">
+    <img id="user-photo" src="" style="width:28px;height:28px;border-radius:50%;display:none" />
+    <span id="user-name" style="font-size:12px;color:#666;flex:1"></span>
+    <button onclick="logout()" style="background:none;border:none;color:#1a73e8;font-size:12px;cursor:pointer">ログアウト</button>
+  </div>
+  <div class="hero" style="padding-top:0.5rem">
     <div class="hero-icon">🏥</div>
     <h1>医療費控除申請書</h1>
     <p id="home-year" style="font-size:13px;color:#666;margin-top:4px"></p>
+    <p id="sync-status" style="font-size:11px;color:#188038;margin-top:4px"></p>
   </div>
   <div class="grid2">
     <div class="card" style="margin-bottom:0"><div class="card-title">登録件数</div><div class="card-value" id="home-count">0件</div></div>
@@ -235,19 +279,79 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
 </div>
 
 <script>
-const API_KEY = localStorage.getItem('iryouhi_apikey') || '';
 let records = [], masterData = [];
+let currentUser = null;
+let fb = null; // firebase helpers, set once ready
 
-function loadData() {
-  try { const s = localStorage.getItem('iryouhi_records'); if (s) records = JSON.parse(s); } catch(e) { records=[]; }
-  try { const s = localStorage.getItem('iryouhi_master'); if (s) masterData = JSON.parse(s); } catch(e) { masterData=[]; }
+window.addEventListener('firebase-ready', () => {
+  fb = window.__firebase;
+  fb.onAuthStateChanged(fb.auth, async (user) => {
+    if (user) {
+      currentUser = user;
+      document.getElementById('user-name').textContent = user.displayName || user.email || '';
+      const photo = document.getElementById('user-photo');
+      if (user.photoURL) { photo.src = user.photoURL; photo.style.display = 'inline-block'; }
+      await loadDataFromCloud();
+      if (localStorage.getItem('iryouhi_apikey')) {
+        showScreen('screen-home');
+      } else {
+        showScreen('screen-setup');
+      }
+    } else {
+      currentUser = null;
+      showScreen('screen-login');
+    }
+  });
+});
+
+async function loginWithGoogle() {
+  document.getElementById('login-error').textContent = '';
+  try {
+    await fb.signInWithPopup(fb.auth, fb.provider);
+  } catch(e) {
+    // ポップアップがブロックされた場合はリダイレクト方式にフォールバック
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/cancelled-popup-request') {
+      try { await fb.signInWithRedirect(fb.auth, fb.provider); } catch(e2) {
+        document.getElementById('login-error').textContent = 'ログインに失敗しました: ' + e2.message;
+      }
+    } else {
+      document.getElementById('login-error').textContent = 'ログインに失敗しました: ' + e.message;
+    }
+  }
 }
 
-function saveData() {
+async function logout() {
+  if (!confirm('ログアウトしますか？')) return;
+  await fb.signOut(fb.auth);
+}
+
+async function loadDataFromCloud() {
+  if (!currentUser) return;
   try {
-    localStorage.setItem('iryouhi_records', JSON.stringify(records));
-    localStorage.setItem('iryouhi_master', JSON.stringify(masterData));
-  } catch(e) {}
+    const ref = fb.doc(fb.db, 'users', currentUser.uid);
+    const snap = await fb.getDoc(ref);
+    if (snap.exists()) {
+      const data = snap.data();
+      records = data.records || [];
+      masterData = data.masterData || [];
+    } else {
+      records = []; masterData = [];
+    }
+    document.getElementById('sync-status').textContent = '☁️ クラウドと同期済み';
+  } catch(e) {
+    document.getElementById('sync-status').textContent = '⚠️ 同期エラー: ' + e.message;
+  }
+}
+
+async function saveData() {
+  if (!currentUser) return;
+  try {
+    const ref = fb.doc(fb.db, 'users', currentUser.uid);
+    await fb.setDoc(ref, { records, masterData, updatedAt: new Date().toISOString() });
+    document.getElementById('sync-status').textContent = '☁️ クラウドと同期済み';
+  } catch(e) {
+    document.getElementById('sync-status').textContent = '⚠️ 保存エラー: ' + e.message;
+  }
 }
 
 function showScreen(id) {
@@ -599,13 +703,8 @@ function exportExcel() {
   showScreen('screen-home');
 }
 
-// 初期化
-loadData();
-if (localStorage.getItem('iryouhi_apikey')) {
-  showScreen('screen-home');
-} else {
-  showScreen('screen-setup');
-}
+// 初期化はFirebase認証状態の変化(onAuthStateChanged)で自動的に行われます
+
 </script>
 </body>
 </html>
