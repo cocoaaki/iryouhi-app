@@ -160,8 +160,8 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
     <span class="menu-arrow">›</span>
   </div>
   <div class="menu-item" onclick="showScreen('screen-master')">
-    <div class="menu-icon" style="background:#fef7e0">🏨</div>
-    <div class="menu-item-text"><h3>病院マスタ確認・編集</h3><p>登録済みの交通費を確認・修正</p></div>
+    <div class="menu-icon" style="background:#fef7e0">🚃</div>
+    <div class="menu-item-text"><h3>区間マスタ確認・編集</h3><p>登録済みの交通費区間を確認・修正</p></div>
     <span class="menu-arrow">›</span>
   </div>
   <div class="menu-item" onclick="showScreen('screen-export')">
@@ -201,8 +201,7 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
     <input type="text" id="r-person" placeholder="例：本人" />
 
     <label>病院・薬局名</label>
-    <input type="text" id="r-hospital" placeholder="病院・薬局名を入力" oninput="onHospitalInput()" autocomplete="off" />
-    <div id="hospital-suggest" style="display:none"></div>
+    <input type="text" id="r-hospital" placeholder="病院・薬局名を入力" autocomplete="off" />
 
     <label>医療費の区分（複数選択可）</label>
     <div class="category-check">
@@ -223,8 +222,12 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
     <input type="date" id="r-date" />
 
     <div class="transport-box">
-      <div class="t-label">往復交通費 <span id="transport-tag" class="new-tag">初回入力</span></div>
-      <input type="number" id="r-transport" placeholder="0" value="0" inputmode="numeric" style="margin-top:0;background:#fff;" />
+      <div class="t-label">通院交通費</div>
+      <label style="margin-top:0">区間（例：渋谷駅～新宿駅）</label>
+      <input type="text" id="r-route" placeholder="○○駅 ～ ○○駅" oninput="onRouteInput()" autocomplete="off" />
+      <div id="route-suggest" style="display:none"></div>
+      <label>往復交通費（円） <span id="transport-tag" class="new-tag" style="margin-left:6px">初回入力</span></label>
+      <input type="number" id="r-transport" placeholder="0" value="0" inputmode="numeric" />
       <p id="transport-hint" class="hint"></p>
     </div>
 
@@ -245,15 +248,15 @@ label { font-size: 13px; color: #555; display: block; margin-top: 12px; }
   </div>
 </div>
 
-<!-- 病院マスタ画面 -->
+<!-- 区間マスタ画面 -->
 <div id="screen-master" class="screen">
   <div class="header">
     <button class="back-btn" onclick="showScreen('screen-home')">‹ 戻る</button>
-    <h1>病院マスタ確認・編集</h1>
+    <h1>区間マスタ確認・編集</h1>
   </div>
-  <p style="font-size:13px;color:#555;margin-bottom:12px">領収書登録時に自動保存された病院と交通費の一覧です。金額の修正もできます。</p>
+  <p style="font-size:13px;color:#555;margin-bottom:12px">登録した交通費の区間と金額の一覧です。金額の修正もできます。</p>
   <div id="master-list"></div>
-  <p id="master-empty" style="color:#888;font-size:13px;text-align:center;padding:1rem 0;display:none">まだ病院が登録されていません</p>
+  <p id="master-empty" style="color:#888;font-size:13px;text-align:center;padding:1rem 0;display:none">まだ区間が登録されていません</p>
 </div>
 
 <!-- Excel出力画面 -->
@@ -451,7 +454,6 @@ async function analyzeReceipt() {
 
     const hospitalName = parsed.hospital_name || '';
     document.getElementById('r-hospital').value = hospitalName;
-    applyTransportFromMaster(hospitalName);
 
     document.getElementById('scan-loading').classList.remove('active');
     document.getElementById('scan-result').style.display='block';
@@ -463,64 +465,61 @@ async function analyzeReceipt() {
   }
 }
 
-function onHospitalInput() {
-  const val = document.getElementById('r-hospital').value.trim();
-  showSuggest(val);
+function onRouteInput() {
+  const val = document.getElementById('r-route').value.trim();
+  showRouteSuggest(val);
   applyTransportFromMaster(val);
 }
 
-function applyTransportFromMaster(hospitalName) {
-  const match = masterData.find(m => m.name === hospitalName);
+function applyTransportFromMaster(route) {
+  const match = masterData.find(m => m.route === route);
   const transportInput = document.getElementById('r-transport');
   const tag = document.getElementById('transport-tag');
   const hint = document.getElementById('transport-hint');
   if (match) {
     transportInput.value = match.transport;
-    transportInput.readOnly = true;
-    transportInput.style.background = '#e8f0fe';
     tag.textContent = '自動入力';
     tag.className = 'auto-tag';
-    hint.textContent = '登録済みの交通費を自動入力しました。';
+    hint.textContent = '登録済みの区間の交通費を自動入力しました。金額が違う場合は修正してください。';
   } else {
     transportInput.value = '';
-    transportInput.readOnly = false;
-    transportInput.style.background = '#fff';
     tag.textContent = '初回入力';
     tag.className = 'new-tag';
-    hint.textContent = hospitalName ? '初めての病院です。往復交通費を入力してください。次回から自動入力されます。' : '';
+    hint.textContent = route ? '初めての区間です。往復交通費を入力してください。次回から自動入力されます。' : '';
   }
 }
 
-function showSuggest(val) {
-  const box = document.getElementById('hospital-suggest');
+function showRouteSuggest(val) {
+  const box = document.getElementById('route-suggest');
   if (!val || masterData.length === 0) { box.style.display='none'; return; }
-  const matches = masterData.filter(m => m.name.includes(val));
+  const matches = masterData.filter(m => m.route.includes(val));
   if (matches.length === 0) { box.style.display='none'; return; }
   box.className = 'suggest-box';
   box.innerHTML = matches.map(m =>
-    `<div class="suggest-item" onclick="selectHospital('${m.name.replace(/'/g,"\\'")}', ${m.transport})">
-      <span>${m.name}</span>
-      <span style="color:#188038;font-size:12px">交通費 ¥${m.transport.toLocaleString()}</span>
+    `<div class="suggest-item" onclick="selectRoute('${m.route.replace(/'/g,"\\'")}', ${m.transport})">
+      <span>${m.route}</span>
+      <span style="color:#188038;font-size:12px">¥${m.transport.toLocaleString()}</span>
     </div>`
   ).join('');
   box.style.display='block';
 }
 
-function selectHospital(name, transport) {
-  document.getElementById('r-hospital').value = name;
-  document.getElementById('hospital-suggest').style.display='none';
-  applyTransportFromMaster(name);
+function selectRoute(route, transport) {
+  document.getElementById('r-route').value = route;
+  document.getElementById('route-suggest').style.display='none';
+  applyTransportFromMaster(route);
 }
 
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('#r-hospital') && !e.target.closest('#hospital-suggest')) {
-    const box = document.getElementById('hospital-suggest');
+  if (!e.target.closest('#r-route') && !e.target.closest('#route-suggest')) {
+    const box = document.getElementById('route-suggest');
     if (box) box.style.display='none';
   }
 });
 
 function saveRecord() {
   const hospitalName = document.getElementById('r-hospital').value.trim();
+  const route = document.getElementById('r-route').value.trim();
   const amount = document.getElementById('r-amount').value;
   const transport = parseInt(document.getElementById('r-transport').value || '0');
   const supplement = parseInt(document.getElementById('r-supplement').value || '0');
@@ -536,8 +535,8 @@ function saveRecord() {
   if (!hospitalName) { document.getElementById('scan-error').textContent='病院名を入力してください。'; return; }
   if (!amount) { document.getElementById('scan-error').textContent='金額を入力してください。'; return; }
 
-  if (!masterData.find(m => m.name === hospitalName)) {
-    masterData.push({ name: hospitalName, transport: transport });
+  if (route && transport > 0 && !masterData.find(m => m.route === route)) {
+    masterData.push({ route: route, transport: transport });
   }
 
   records.push({
@@ -548,6 +547,7 @@ function saveRecord() {
     amount: amount,
     supplement: supplement,
     transport: transport,
+    route: route,
     date: document.getElementById('r-date').value,
   });
   saveData();
@@ -560,7 +560,8 @@ function resetScan() {
   const sr = document.getElementById('scan-result'); if(sr){sr.style.display='none';}
   const se = document.getElementById('scan-error'); if(se){se.textContent='';}
   const h = document.getElementById('r-hospital'); if(h){h.value='';}
-  const t = document.getElementById('r-transport'); if(t){t.value=''; t.readOnly=false; t.style.background='#fff';}
+  const rt = document.getElementById('r-route'); if(rt){rt.value='';}
+  const t = document.getElementById('r-transport'); if(t){t.value='';}
   const tag = document.getElementById('transport-tag'); if(tag){tag.textContent='初回入力'; tag.className='new-tag';}
   const hint = document.getElementById('transport-hint'); if(hint){hint.textContent='';}
   ['cat-1','cat-2','cat-3','cat-4'].forEach(id => {
@@ -583,6 +584,7 @@ function renderList() {
         <div class="record-name">${r.hospital}</div>
         <div class="record-sub">${r.date} ${r.person}</div>
         <div class="record-sub" style="margin-top:2px">${catStr}</div>
+        ${r.route?`<div class="record-sub" style="margin-top:2px;color:#188038">🚃 ${r.route}</div>`:''}
       </div>
       <div style="text-align:right;flex-shrink:0;margin-left:8px">
         <div class="record-amount">¥${parseInt(r.amount||0).toLocaleString()}</div>
@@ -613,7 +615,7 @@ function renderMaster() {
   masterData.forEach((m,i) => {
     html+=`<div class="record-row">
       <div style="flex:1">
-        <div class="record-name">${m.name}</div>
+        <div class="record-name">${m.route}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
           <span style="font-size:12px;color:#555">往復交通費 ¥</span>
           <input type="number" value="${m.transport}" inputmode="numeric" onchange="updateMasterTransport(${i}, this.value)" style="width:90px;padding:5px 8px;font-size:14px;margin-top:0" />
@@ -627,7 +629,7 @@ function renderMaster() {
 
 function updateMasterTransport(i, val) { masterData[i].transport=parseInt(val||'0'); saveData(); }
 function deleteMaster(i) {
-  if(!confirm(`「${masterData[i].name}」を削除しますか？`)) return;
+  if(!confirm(`「${masterData[i].route}」を削除しますか？`)) return;
   masterData.splice(i,1); saveData(); renderMaster();
 }
 
@@ -672,7 +674,7 @@ function exportExcel() {
     if (parseInt(r.transport||0) > 0) {
       rows.push([
         r.person || '本人',
-        r.hospital,
+        r.route || '通院交通費',
         '', '', '', '該当する',
         parseInt(r.transport),
         '',
